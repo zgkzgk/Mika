@@ -480,11 +480,11 @@ Insert 1-100 calendar events in one Android provider batch; prefer for 3 or more
 
 ## web_observe
 Look at the current web page. Returns the site (currentSite), url, title and tabId, and a fresh element snapshot (snapshotId + elements) of what is in view. A screenshot is added when the element list is clearly unreadable or mostly unlabeled. If the target is missing or ambiguous, request web_screenshot or web_find_visually. Prefer tapping a ref from this result with web_tap over guessing coordinates; to read the whole page, use web_read_page.
-{"type":"object","properties":{"reason":{"type":"string","description":"Short note shown to the user as the step label."}},"required":[],"additionalProperties":false}
+{"type":"object","properties":{"full":{"type":"boolean","description":"Send the full visible text again instead of only what changed since the last read. Use it when the diff is not enough to locate what you need."},"reason":{"type":"string","description":"Short note shown to the user as the step label."}},"required":[],"additionalProperties":false}
 
 ## web_list_elements
-List what is on this screen as text, without a screenshot. Each element comes with a ref (@eN); to act on one, pass its ref together with the snapshotId of this list. Positions use the same 0-999 grid as web_tap. When an action answers ref_expired, the screen has moved on: call web_observe or web_list_elements again and use the new refs.
-{"type":"object","properties":{"reason":{"type":"string","description":"Short note shown to the user as the step label."}},"required":[],"additionalProperties":false}
+List what is on this screen as text, without a screenshot. Each element comes with a ref (@eN); to act on one, pass its ref together with the snapshotId of this list. Positions use the same 0-999 grid as web_tap. visibleText repeats only what changed since the last read (new/gone/moved, or {"unchanged":true}); pass full:true to get the full text again. When an action answers ref_expired, the screen has moved on: call web_observe or web_list_elements again and use the new refs.
+{"type":"object","properties":{"full":{"type":"boolean","description":"Send the full visible text again instead of only what changed since the last read. Use it when the diff is not enough to locate what you need."},"reason":{"type":"string","description":"Short note shown to the user as the step label."}},"required":[],"additionalProperties":false}
 
 ## web_screenshot
 Capture the current screen as an image. To give a screenshot to the user, set savePath to a new .png path under /workspace, then call share_file on the returned path. Saving does not overwrite an existing file. Models that cannot view images must set savePath; they can still capture and deliver the screenshot.

@@ -75,7 +75,7 @@ internal object PhoneCollect : PhoneTool {
         var stopped = "page_limit"
         var finalScreen: JsonObject? = null
         for (page in 0 until pages) {
-            val read = sub.run(Part.ToolCall("${ctx.callId}.read${page + 1}", "phone_list_elements", "{}"))
+            val read = sub.run(Part.ToolCall("${ctx.callId}.read${page + 1}", "phone_list_elements", """{"full":true}"""))
             val content = read.content
             if (content["ok"] != JsonPrimitive(true)) {
                 stopped = (content["error"] as? JsonPrimitive)?.contentOrNull ?: "read_failed"

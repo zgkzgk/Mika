@@ -1,0 +1,40 @@
+{
+    "scenarios": [
+        {
+            "scenario": "settings_toggle",
+            "roundTrips": 5,
+            "inputChars": 144854,
+            "screenChars": 3476
+        },
+        {
+            "scenario": "chat_send",
+            "roundTrips": 5,
+            "inputChars": 145042,
+            "screenChars": 2855
+        },
+        {
+            "scenario": "scroll_read",
+            "roundTrips": 5,
+            "inputChars": 144052,
+            "screenChars": 2564
+        },
+        {
+            "scenario": "settings_toggle_wait",
+            "roundTrips": 2,
+            "inputChars": 49213,
+            "screenChars": 643
+        },
+        {
+            "scenario": "chat_send_wait",
+            "roundTrips": 2,
+            "inputChars": 49295,
+            "screenChars": 676
+        },
+        {
+            "scenario": "scroll_read_wait",
+            "roundTrips": 2,
+            "inputChars": 49140,
+            "screenChars": 566
+        }
+    ]
+}

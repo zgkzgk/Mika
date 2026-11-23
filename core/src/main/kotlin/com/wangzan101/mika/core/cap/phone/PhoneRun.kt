@@ -44,6 +44,7 @@ internal object PhoneRun : PhoneTool {
                     put("present", buildJsonObject { put("type", "boolean") })
                     put("pressEnter", buildJsonObject { put("type", "boolean") })
                     put("cold", buildJsonObject { put("type", "boolean") })
+                    put("stable", buildJsonObject { put("type", "boolean") })
                 })
                 put("required", JsonArray(listOf(JsonPrimitive("op"))))
                 put("additionalProperties", false)
@@ -119,14 +120,23 @@ internal object PhoneRun : PhoneTool {
                     })
                 }
                 "wait", "assert" -> {
-                    val text = command.string("targetText") ?: throw ArgError("commands[$index].targetText", "required")
-                    val present = command.boolean("present") ?: true
+                    val stable = command.boolean("stable") == true
+                    if (stable && op == "assert") throw ArgError("commands[$index].stable", "only wait supports stable")
                     val timeout = if (op == "assert") 0 else command.integer("timeoutMs") ?: 5_000
                     if (timeout !in 0..10_000) throw ArgError("commands[$index].timeoutMs", "must be 0-10000")
-                    // 等的时候用户插了话:不再等,这一条和后面的都不做,先读那句话
-                    val found = awaitText(ctx, text, present, timeout)
-                    if (found == null) failCode(SKIPPED_FOR_NEW_MESSAGE)
-                    else ToolExecution(buildJsonObject { put("ok", found); if (!found) put("error", "condition_unmet") })
+                    if (stable) {
+                        // 等页面安静:端口在稳定窗口内无变化才继续;用户插话撤掉等待时为 null
+                        val met = waitOrSteer { ctx.screen.waitFor("stable", null, timeout.toLong()) }
+                        if (met == null) failCode(SKIPPED_FOR_NEW_MESSAGE)
+                        else ToolExecution(buildJsonObject { put("ok", met); if (!met) put("error", "condition_unmet") })
+                    } else {
+                        val text = command.string("targetText") ?: throw ArgError("commands[$index].targetText", "required")
+                        val present = command.boolean("present") ?: true
+                        // 等的时候用户插了话:不再等,这一条和后面的都不做,先读那句话
+                        val found = awaitText(ctx, text, present, timeout)
+                        if (found == null) failCode(SKIPPED_FOR_NEW_MESSAGE)
+                        else ToolExecution(buildJsonObject { put("ok", found); if (!found) put("error", "condition_unmet") })
+                    }
                 }
                 else -> run(sub, ctx, index, "phone_list_elements", JsonObject(emptyMap()))
             }

@@ -15,6 +15,7 @@ import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.tool.fail
 import com.wangzan101.mika.core.tool.okObj
+import com.wangzan101.mika.core.tool.bool
 import com.wangzan101.mika.core.tool.str
 import com.wangzan101.mika.core.workspace.SandboxError
 import com.wangzan101.mika.core.uistate.screenText
@@ -30,11 +31,13 @@ internal class Observe(f: ScreenFamily) : ScreenTool(f, "observe") {
     override val verb = Verb.Observe
     override val label = "看屏幕"
     override val risk = Risk.Read
-    override val def by lazy { ToolDef(name, describe()) }
+    override val def by lazy { ToolDef(name, describe(), mapOf(
+        "full" to bool("Send the full visible text again instead of only what changed since the last read. Use it when the diff is not enough to locate what you need."))) }
 
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.session.observe(
         withImage = ctx.config.visionEnabled && !ctx.config.adaptiveVision,
         adaptiveImage = ctx.config.visionEnabled && ctx.config.adaptiveVision,
+        fullText = a.bool("full", false),
     )
 }
 
@@ -42,9 +45,11 @@ internal class ListElements(f: ScreenFamily) : ScreenTool(f, "list_elements") {
     override val verb = Verb.ListElements
     override val label = "读取界面元素"
     override val risk = Risk.Read
-    override val def by lazy { ToolDef(name, describe()) }
+    override val def by lazy { ToolDef(name, describe(), mapOf(
+        "full" to bool("Send the full visible text again instead of only what changed since the last read. Use it when the diff is not enough to locate what you need."))) }
 
-    override suspend fun execute(a: Args, ctx: ToolContext) = ctx.session.observe(withImage = false, recordFrame = false)
+    override suspend fun execute(a: Args, ctx: ToolContext) =
+        ctx.session.observe(withImage = false, recordFrame = false, fullText = a.bool("full", false))
 }
 
 /** Seeing models receive the image; any task with a workspace can save it for delivery to the user. */

@@ -20,9 +20,15 @@ fun field(ref: String, name: String, y: Int = 900, hint: Boolean = true) =
 /**
  * 按剧本换屏的手机屏幕:读屏(编号 s1、s2…)给出当前一屏;每个写操作取 [results] 里的下一个结果(用完为 Ok(changed=true)),
  * 结果是画面变了的 Ok 就换到下一屏(最后一屏之后停在最后一屏)。不登记编号的 peek 编号 p1、p2…。
+ * [waits] 是 waitFor 的结果队列(FIFO,用完按 false):驱动等文字/等安静的命中与超时。
  */
-class ScriptedScreen(private val screens: List<Screen>, results: List<ActionResult> = emptyList()) : ScreenPort {
+class ScriptedScreen(
+    private val screens: List<Screen>,
+    results: List<ActionResult> = emptyList(),
+    waits: List<Boolean> = emptyList(),
+) : ScreenPort {
     private val results = ArrayDeque(results)
+    private val waits = ArrayDeque(waits)
     private var index = 0
     private var reads = 0
     private var peeks = 0
@@ -33,6 +39,10 @@ class ScriptedScreen(private val screens: List<Screen>, results: List<ActionResu
     override suspend fun snapshot() = read("s${++reads}")
     override suspend fun peek() = read("p${++peeks}")
     override suspend fun screenshotPng(): ByteArray? = null
+    override suspend fun waitFor(condition: String, value: String?, timeoutMs: Long): Boolean {
+        calls += "wait $condition ${value ?: "-"} $timeoutMs"
+        return waits.removeFirstOrNull() ?: false
+    }
 
     private fun act(what: String): ActionResult {
         calls += what

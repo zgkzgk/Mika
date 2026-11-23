@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -84,6 +85,8 @@ internal class ScreenSession(
     private var shown: ModelSnapshot? = null
     /** 最近一次全量屏幕及其后各次差异的 snapshotId:差异要靠这整条链才看得懂,缺一条就发全量。 */
     private val chain = mutableListOf<String>()
+    /** 上一次发给模型的 OCR 可见文字与归属键(应用/页面):visibleText 差异的 base。 */
+    private var lastVisible: Pair<String, List<VisibleTextLine>>? = null
     /** 模型此刻还看得到的读屏 snapshotId;null 表示循环还没告诉过(都看得到)。 */
     var visible: Set<String>? = null
     var lastSnapshot: ScreenSnapshot? = null
@@ -156,7 +159,21 @@ internal class ScreenSession(
     /** 此刻重新读一屏,不登记编号、不改模型手里的读屏;读不到为 null。 */
     suspend fun peek(): ScreenSnapshot? = screenAttempt { screen.peek() }
 
-    suspend fun observe(withImage: Boolean, adaptiveImage: Boolean = false, recordFrame: Boolean = true): ToolExecution {
+    /**
+     * visibleText 的模型输出:首屏、换了应用/页面、[full] 或 diff 出错时全量,否则只报差异([ScreenDelta])。
+     * 读过的屏(全量或差异)记为下一次的 base;OCR 读不到时清掉 base,下一次回全量。
+     */
+    internal fun visibleJson(s: ScreenSnapshot, lines: List<VisibleTextLine>?, full: Boolean,
+        diff: (List<VisibleTextLine>, List<VisibleTextLine>) -> ScreenDelta.Result = ScreenDelta::between): JsonElement? {
+        if (lines == null) { lastVisible = null; return null }
+        val key = (s.packageName ?: s.unreadableApp ?: "") + (s.web?.url ?: "")
+        val prev = lastVisible
+        lastVisible = key to lines
+        if (full || prev == null || prev.first != key) return VisibleText.json(lines)
+        return try { ScreenDelta.json(diff(prev.second, lines)) } catch (e: Exception) { VisibleText.json(lines) }
+    }
+
+    suspend fun observe(withImage: Boolean, adaptiveImage: Boolean = false, recordFrame: Boolean = true, fullText: Boolean = false): ToolExecution {
         val s = snapshot()
         val (tree, ocr, ocrStatus) = readTree(s)
         val imageReason = if (adaptiveImage && tree.poor) tree.reason else null
@@ -193,7 +210,7 @@ internal class ScreenSession(
             put("viewport", buildJsonObject { put("width", s.width); put("height", s.height) })
             put("elements", elements)
             if (surface.id == "phone" && s.windows.isNotEmpty()) put("tree", UiTreeJson.windows(s))
-            ocr?.let { put("visibleText", VisibleText.json(it)) }
+            visibleJson(s, ocr, fullText)?.let { put("visibleText", it) }
             if (surface.id == "phone") ScreenMap.json(s, ocr.orEmpty())?.let { put("screenMap", it) }
             val omitted = s.web?.omitted ?: 0
             put("truncated", hidden > 0 || omitted > 0)
@@ -309,7 +326,7 @@ internal class ScreenSession(
             if (d["full"] == JsonPrimitive(true)) chain.clear()
             chain += cur.snapshotId
             JsonObject(d + ("screenshotId" to JsonPrimitive(shotId)) +
-                (ocr?.let { mapOf("visibleText" to VisibleText.json(it)) } ?: emptyMap()) +
+                (ocr?.let { visibleJson(s, it, full = false) }?.let { mapOf("visibleText" to it) } ?: emptyMap()) +
                 (if (surface.id == "phone") ScreenMap.json(s, ocr.orEmpty())?.let { mapOf("screenMap" to it) } ?: emptyMap() else emptyMap()) +
                 (if (s.changedDuringRead) mapOf("note" to JsonPrimitive(NOTE_CHANGED_DURING_READ)) else emptyMap()) +
                 (s.opened?.let { mapOf("opened" to openedJson(it)) } ?: emptyMap()) +

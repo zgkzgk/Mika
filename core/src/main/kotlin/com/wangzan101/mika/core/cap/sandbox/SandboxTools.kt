@@ -229,16 +229,18 @@ internal class SandboxTools(
     private fun phoneHandler(callId: String, sub: SubActions?, tools: ToolIndex?): PhoneCommandHandler? = sub?.let { runner ->
         val sequence = AtomicInteger()
         PhoneCommandHandler { requested, args ->
-            val tool = when (requested.removePrefix("phone_")) {
+            val tool = when (val op = requested.removePrefix("phone_")) {
                 "type" -> "phone_type_text"
                 "clear" -> "phone_clear_text"
                 "key" -> "phone_press_key"
                 "launch" -> "phone_launch_app"
                 "dump" -> "phone_list_elements"
-                else -> "phone_${requested.removePrefix("phone_")}"
+                else -> "phone_$op"
             }
+            // dump 是脚本在消费,没有对话历史可对上一屏,diff 对它没意义:强制全量
+            val a = if (requested.removePrefix("phone_") == "dump") JsonObject(args + ("full" to JsonPrimitive(true))) else args
             if (tools?.get(tool)?.sandboxCallable != true) buildJsonObject { put("ok", false); put("error", "unknown_phone_command") }
-            else runner.run(Part.ToolCall("$callId.phone${sequence.incrementAndGet()}", tool, args.toString())).content
+            else runner.run(Part.ToolCall("$callId.phone${sequence.incrementAndGet()}", tool, a.toString())).content
         }
     }
 
